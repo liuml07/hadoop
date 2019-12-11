@@ -48,12 +48,10 @@ import com.google.common.collect.Lists;
 import org.assertj.core.api.Assertions;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.PathIOException;
 import org.apache.hadoop.fs.contract.s3a.S3AContract;
 import org.apache.hadoop.fs.s3a.Constants;
-import org.apache.hadoop.fs.s3a.S3ATestConstants;
 import org.apache.hadoop.fs.s3a.Tristate;
 import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.util.DurationInfo;
@@ -146,7 +144,7 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
   @Override
   public void setUp() throws Exception {
     Configuration conf = prepareTestConfiguration(new Configuration());
-    assumeThatDynamoMetadataStoreImpl(conf);
+    S3GuardTestUtils.assumeThatDynamoMetadataStoreImpl(conf);
     Assume.assumeTrue("Test DynamoDB table name should be set to run "
             + "integration tests.", testDynamoDBTableName != null);
     conf.set(S3GUARD_DDB_TABLE_NAME_KEY, testDynamoDBTableName);
@@ -173,49 +171,7 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
 
   @BeforeClass
   public static void beforeClassSetup() throws IOException {
-    Configuration conf = prepareTestConfiguration(new Configuration());
-    assumeThatDynamoMetadataStoreImpl(conf);
-    // S3GUARD_DDB_TEST_TABLE_NAME_KEY and S3GUARD_DDB_TABLE_NAME_KEY should
-    // be configured to use this test.
-    testDynamoDBTableName = conf.get(
-        S3ATestConstants.S3GUARD_DDB_TEST_TABLE_NAME_KEY);
-    String dynamoDbTableName = conf.getTrimmed(S3GUARD_DDB_TABLE_NAME_KEY);
-    Assume.assumeTrue("No DynamoDB table name configured in "
-            + S3GUARD_DDB_TABLE_NAME_KEY,
-        !StringUtils.isEmpty(dynamoDbTableName));
-
-    // We should assert that the table name is configured, so the test should
-    // fail if it's not configured.
-    assertNotNull("Test DynamoDB table name '"
-        + S3ATestConstants.S3GUARD_DDB_TEST_TABLE_NAME_KEY + "'"
-        + " should be set to run integration tests.",
-        testDynamoDBTableName);
-
-    // We should assert that the test table is not the same as the production
-    // table, as the test table could be modified and destroyed multiple
-    // times during the test.
-    assertNotEquals("Test DynamoDB table name: "
-            + "'" + S3ATestConstants.S3GUARD_DDB_TEST_TABLE_NAME_KEY + "'"
-            + " and production table name: "
-            + "'" + S3GUARD_DDB_TABLE_NAME_KEY + "' can not be the same.",
-        testDynamoDBTableName, conf.get(S3GUARD_DDB_TABLE_NAME_KEY));
-
-    // We can use that table in the test if these assertions are valid
-    conf.set(S3GUARD_DDB_TABLE_NAME_KEY, testDynamoDBTableName);
-
-    // remove some prune delays
-    conf.setInt(S3GUARD_DDB_BACKGROUND_SLEEP_MSEC_KEY, 0);
-
-    // clear all table tagging config before this test
-    conf.getPropsWithPrefix(S3GUARD_DDB_TABLE_TAG).keySet().forEach(
-        propKey -> conf.unset(S3GUARD_DDB_TABLE_TAG + propKey)
-    );
-
-    // set the tags on the table so that it can be tested later.
-    Map<String, String> tagMap = createTagMap();
-    for (Map.Entry<String, String> tagEntry : tagMap.entrySet()) {
-      conf.set(S3GUARD_DDB_TABLE_TAG + tagEntry.getKey(), tagEntry.getValue());
-    }
+    Configuration conf = S3GuardTestUtils.prepareTestConfigurationForS3Guard();
     LOG.debug("Creating static ddbms which will be shared between tests.");
     enableOnDemand(conf);
 
@@ -244,12 +200,6 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
         LOG.debug("On ddbms shutdown", e);
       }
     }
-  }
-
-  private static void assumeThatDynamoMetadataStoreImpl(Configuration conf){
-    Assume.assumeTrue("Test only applies when DynamoDB is used for S3Guard",
-        conf.get(Constants.S3_METADATA_STORE_IMPL).equals(
-            Constants.S3GUARD_METASTORE_DYNAMO));
   }
 
   /**
@@ -648,7 +598,7 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
         S3GUARD_DDB_MAX_RETRIES_DEFAULT);
     conf.setInt(S3GUARD_DDB_MAX_RETRIES, 3);
     conf.set(S3GUARD_DDB_TABLE_NAME_KEY, tableName);
-    tagConfiguration(conf);
+    S3GuardTestUtils.tagConfiguration(conf);
     DynamoDBMetadataStore ddbms = new DynamoDBMetadataStore();
     try {
       ddbms.initialize(conf, new S3Guard.TtlTimeProvider(conf));
@@ -657,7 +607,7 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
 
       Table table = verifyTableInitialized(tableName, ddbms.getDynamoDB());
       // check the tagging
-      verifyStoreTags(createTagMap(), ddbms);
+      verifyStoreTags(S3GuardTestUtils.createTagMap(), ddbms);
       // check version compatibility
       checkVerifyVersionMarkerCompatibility(localTableHandler, table);
 
@@ -1030,21 +980,6 @@ public class ITestDynamoDBMetadataStore extends MetadataStoreTestBase {
                 .getTableArn());
     return store.getAmazonDynamoDB()
         .listTagsOfResource(listTagsOfResourceRequest).getTags();
-  }
-
-  private static Map<String, String> createTagMap() {
-    Map<String, String> tagMap = new HashMap<>();
-    tagMap.put("hello", "dynamo");
-    tagMap.put("tag", "youre it");
-    return tagMap;
-  }
-
-  private static void tagConfiguration(Configuration conf) {
-    // set the tags on the table so that it can be tested later.
-    Map<String, String> tagMap = createTagMap();
-    for (Map.Entry<String, String> tagEntry : tagMap.entrySet()) {
-      conf.set(S3GUARD_DDB_TABLE_TAG + tagEntry.getKey(), tagEntry.getValue());
-    }
   }
 
   @Test
