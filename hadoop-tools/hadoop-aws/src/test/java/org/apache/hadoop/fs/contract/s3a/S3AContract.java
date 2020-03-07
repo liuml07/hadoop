@@ -33,7 +33,7 @@ public class S3AContract extends AbstractBondedFSContract {
   public S3AContract(Configuration conf) {
     super(conf);
     //insert the base features
-    addConfResource(CONTRACT_XML);
+    //addConfResource(CONTRACT_XML);
   }
 
   @Override

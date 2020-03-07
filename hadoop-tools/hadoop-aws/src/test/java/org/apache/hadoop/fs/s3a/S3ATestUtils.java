@@ -544,9 +544,15 @@ public final class S3ATestUtils {
     for (String option : options) {
       final String stripped = option.substring("fs.s3a.".length());
       String target = bucketPrefix + stripped;
-      if (conf.get(target) != null) {
-        LOG.debug("Removing option {}", target);
+      String v = conf.get(target);
+      if (v != null) {
+        LOG.debug("Removing option {}; was {}", target, v);
         conf.unset(target);
+      }
+      String extended = bucketPrefix + option;
+      if (conf.get(extended) != null) {
+        LOG.debug("Removing option {}", extended);
+        conf.unset(extended);
       }
     }
   }

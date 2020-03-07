@@ -33,6 +33,8 @@ import org.apache.hadoop.fs.contract.ContractTestUtils;
 import static org.apache.hadoop.fs.contract.ContractTestUtils.*;
 import static org.apache.hadoop.fs.s3a.Constants.SERVER_SIDE_ENCRYPTION_ALGORITHM;
 import static org.apache.hadoop.fs.s3a.Constants.SERVER_SIDE_ENCRYPTION_KEY;
+import static org.apache.hadoop.fs.s3a.S3ATestUtils.getTestBucketName;
+import static org.apache.hadoop.fs.s3a.S3ATestUtils.removeBaseAndBucketOverrides;
 import static org.apache.hadoop.fs.s3a.S3ATestUtils.skipIfEncryptionTestsDisabled;
 
 /**
@@ -60,6 +62,9 @@ public abstract class AbstractTestS3AEncryption extends AbstractS3ATestBase {
    */
   protected void patchConfigurationEncryptionSettings(
       final Configuration conf) {
+    removeBaseAndBucketOverrides(getTestBucketName(conf), conf,
+        SERVER_SIDE_ENCRYPTION_ALGORITHM,
+        SERVER_SIDE_ENCRYPTION_KEY);
     conf.set(SERVER_SIDE_ENCRYPTION_ALGORITHM,
             getSSEAlgorithm().getMethod());
   }
@@ -70,6 +75,22 @@ public abstract class AbstractTestS3AEncryption extends AbstractS3ATestBase {
 
   @Test
   public void testEncryption() throws Throwable {
+    for (int size: SIZES) {
+      validateEncryptionForFilesize(size);
+    }
+  }
+
+
+  @Test
+  public void testEncryption2() throws Throwable {
+    for (int size: SIZES) {
+      validateEncryptionForFilesize(size);
+    }
+  }
+
+
+  @Test
+  public void testEncryption3() throws Throwable {
     for (int size: SIZES) {
       validateEncryptionForFilesize(size);
     }
@@ -93,6 +114,27 @@ public abstract class AbstractTestS3AEncryption extends AbstractS3ATestBase {
     ContractTestUtils.verifyFileContents(fs, renamedFile, data);
     assertEncrypted(renamedFile);
   }
+
+
+  @Test
+  public void testEncryptionOverRename2() throws Throwable {
+    skipIfEncryptionTestsDisabled(getConfiguration());
+    Path src = path(createFilename(1024));
+    byte[] data = dataset(1024, 'a', 'z');
+    S3AFileSystem fs = getFileSystem();
+    writeDataset(fs, src, data, data.length, 1024 * 1024, true);
+    ContractTestUtils.verifyFileContents(fs, src, data);
+    // this file will be encrypted
+    assertEncrypted(src);
+
+    Path targetDir = path("target");
+    mkdirs(targetDir);
+    fs.rename(src, targetDir);
+    Path renamedFile = new Path(targetDir, src.getName());
+    ContractTestUtils.verifyFileContents(fs, renamedFile, data);
+    assertEncrypted(renamedFile);
+  }
+
 
   protected void validateEncryptionForFilesize(int len) throws IOException {
     skipIfEncryptionTestsDisabled(getConfiguration());
