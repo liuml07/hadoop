@@ -18,9 +18,6 @@
 
 package org.apache.hadoop.fs.s3a;
 
-import com.amazonaws.services.s3.model.ObjectMetadata;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.commons.net.util.Base64;
 import java.io.IOException;
 
 import org.junit.Test;
@@ -33,6 +30,8 @@ import org.apache.hadoop.fs.contract.ContractTestUtils;
 import static org.apache.hadoop.fs.contract.ContractTestUtils.*;
 import static org.apache.hadoop.fs.s3a.Constants.SERVER_SIDE_ENCRYPTION_ALGORITHM;
 import static org.apache.hadoop.fs.s3a.Constants.SERVER_SIDE_ENCRYPTION_KEY;
+import static org.apache.hadoop.fs.s3a.S3ATestUtils.getTestBucketName;
+import static org.apache.hadoop.fs.s3a.S3ATestUtils.removeBaseAndBucketOverrides;
 import static org.apache.hadoop.fs.s3a.S3ATestUtils.skipIfEncryptionTestsDisabled;
 
 /**
@@ -60,6 +59,9 @@ public abstract class AbstractTestS3AEncryption extends AbstractS3ATestBase {
    */
   protected void patchConfigurationEncryptionSettings(
       final Configuration conf) {
+    removeBaseAndBucketOverrides(getTestBucketName(conf), conf,
+        SERVER_SIDE_ENCRYPTION_ALGORITHM,
+        SERVER_SIDE_ENCRYPTION_KEY);
     conf.set(SERVER_SIDE_ENCRYPTION_ALGORITHM,
             getSSEAlgorithm().getMethod());
   }
